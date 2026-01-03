@@ -1,0 +1,25 @@
+# Ignore Python compiled files
+__pycache__/
+*.pyc
+
+# Ignore environment folders
+venv/
+.env
+
+# Ignore IDE/editor files
+.vscode/
+
+.cache/
+
+#object files
+cppVersion/src/*.o
+
+#executable
+cppVersion/nn_cpp 
+
+cppVersion/Makefile
+
+#dataset
+MNIST/
+
+
