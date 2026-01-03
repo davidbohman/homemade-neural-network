@@ -22,7 +22,7 @@
 # Will try it on the MNIST set, the pictures are 
 
 import math
-import random
+import time
 import numpy as np
 
 
@@ -35,10 +35,10 @@ from torchvision import datasets
 #////////////////// RETRIVING TRAINING DATA /////////////////////////////
 
 #Loads training data (60 000 samples)
-mnist_train = datasets.MNIST(root="./MNIST", train=True, download=True)
+mnist_train = datasets.MNIST(root="../MNIST", train=True, download=True)
 
 #Loads data for testing (10 000 samples)
-mnist_test = datasets.MNIST(root="./MNIST", train=False, download=True)
+mnist_test = datasets.MNIST(root="../MNIST", train=False, download=True)
     
 
 #Converting an image into an nparray
@@ -74,7 +74,6 @@ def softMax(z):
 def createWeightMatrix(height, width):
     #creates a 2D numpy array with random float values
     return np.random.rand(height, width)
-
 
 #Returns index containing largest value in the output vector
 def findHighestVal(outputVector):
@@ -159,12 +158,13 @@ def main():
 
 
     # ---- TRAINING LOOP ------------
-    EPOCH = 5
+    EPOCH = 1
 
     print("Training...\n")
     for epoch in range(EPOCH):
 
-        print("Starting epoch: \n", epoch)
+        
+        start_epoch = time.perf_counter()
         hits = 0
         for i in range(len(mnist_train)):
             #Loads the input vector
@@ -199,8 +199,10 @@ def main():
             
             if(findHighestVal(A2) == label):
                 hits += 1
-            print(f"Cost during training: {cost(A2, label):.4f}  Hitrate during training: {hits / (i+1):.4f}    ", end='\r', flush=True)
-
+            #print(f"Cost during training: {cost(A2, label):.4f}  Hitrate during training: {hits / (i+1):.4f}    ", end='\r', flush=True)
+        end_epoch = time.perf_counter()
+        elapsed = end_epoch - start_epoch
+        print("Epoch ", epoch, " complete. Elapsed time: ", elapsed, " seconds")
 
     
     
