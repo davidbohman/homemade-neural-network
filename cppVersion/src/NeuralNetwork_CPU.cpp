@@ -1,37 +1,49 @@
 #include "../include/NeuralNetwork_CPU.h"
 #include <cassert>
+#include <chrono>
 #include <random>
+#include <omp.h>
 
+
+double forwarding_time = 0.0;
+double back_prop_time = 0.0;
+double matmul_time = 0.0;
 
 float randomWeight(float scale){
         static std::mt19937 rng(std::random_device{}());
-        static std::uniform_real_distribution<float> dist(0.0f, 1.0f);
+        static std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
         return dist(rng) * scale;
 }
 
 // -------- Linear Algebra ----------
 std::vector<float> matrix_multiplication(const std::vector<float> &m1, int m1_rows, int m1_cols,
-                                         const std::vector<float> &m2, int m2_rows, int m2_cols){
-     // mxn * nxm = mxm
+                                         const std::vector<float> &m2, int m2_rows, int m2_cols)
+{
+                                            // mxn * nxm = mxm
+    auto start = std::chrono::high_resolution_clock::now(); // Time messurment
     assert(m1_cols == m2_rows && "Matrix dimensions do not match for multiplication");
-
+                                        
     std::vector<float> result(m1_rows * m2_cols, 0.0f);
 
     /*
     [1, 2] * [5] = [(1*5 + 2*6)] =  [17]
     [4, 3]   [6]   [(4*5 + 3*6)]    [38]
     */
-
+//  #pragma omp parallel for simd
     for(int i = 0; i < m1_rows; i++){
         for(int j = 0; j < m2_cols; j++){
             float sum = 0.0f;
-            //Calculate dot product
+ //           #pragma omp simd
             for(int k = 0; k < m1_cols; k++){
                 sum += m1[i * m1_cols + k] * m2[k * m2_cols + j];
             }
             result[i * m2_cols + j] = sum;
         }
     }
+    auto end = std::chrono::high_resolution_clock::now(); // Time messurment
+    std::chrono::duration<double> elapsed = end - start;
+    matmul_time += elapsed.count();
+    
     return result;
 }
 
@@ -147,9 +159,10 @@ void NeuralNetwork_CPU::initialize(int inputSize, int hiddenSize, int outputSize
     weights_output.resize(outputSize * hiddenSize);
 
     //Assign random values at start:
-    float scale = sqrt(1.0f / inputSize); //Normalising values
-    for (auto &w : weights_hidden) w = randomWeight(scale);
-    for (auto &w : weights_output) w = randomWeight(scale);
+    float scale_hidden = sqrt(1.0f / inputSize); //Normalising values
+    float scale_output = sqrt(1.0f / hiddenSize);
+    for (auto &w : weights_hidden) w = randomWeight(scale_hidden);
+    for (auto &w : weights_output) w = randomWeight(scale_output);
 
     bias_hidden.resize(hiddenSize);
     bias_output.resize(outputSize); 
@@ -166,14 +179,13 @@ void NeuralNetwork_CPU::initialize(int inputSize, int hiddenSize, int outputSize
 }
 
 std::vector<float> NeuralNetwork_CPU::forward(const std::vector<float> &input) { 
-
-    // Creating hidden layer
-
+    auto start_forward = std::chrono::high_resolution_clock::now(); // Time messurment
+    // Creating hidden layer  
     //weight0 @ input
     layer_0_output = 
         matrix_multiplication(weights_hidden, hiddenSize, inputSize,input, inputSize, 1); // input is 784x1 vector
-    //(weight0 @ input) - bias
-    matrix_subtraction(layer_0_output, bias_hidden, hiddenSize, 1);
+    //(weight0 @ input) + bias
+    matrix_addition(layer_0_output, bias_hidden, hiddenSize, 1);
 
     //Copy used later for backpropagation
     layer_0_raw_output = layer_0_output;
@@ -185,19 +197,26 @@ std::vector<float> NeuralNetwork_CPU::forward(const std::vector<float> &input) {
     std::vector<float> layer_1_output = 
         matrix_multiplication(weights_output, outputSize, hiddenSize, layer_0_output, hiddenSize, 1);
 
-    matrix_subtraction(layer_1_output, bias_output, 10, 1);
+    matrix_addition(layer_1_output, bias_output, 10, 1);
 
     //Output activation
-    return softmax(layer_1_output); 
+    std::vector<float> result = softmax(layer_1_output);
+    auto end_forward = std::chrono::high_resolution_clock::now(); // Time messurment
+    
+    std::chrono::duration<double> elapsed = end_forward - start_forward;
+    forwarding_time += elapsed.count();
+
+    return result; 
 
 }
 void NeuralNetwork_CPU::train(const std::vector<float> &input, uint8_t target, float learning_rate) {
-    
     std::vector<float> target_vector(outputSize, 0);
     target_vector[target] = 1.0f;
 
      //Getting error term for output vector (10x1) vector
      std::vector<float> output_error = forward(input);
+
+     auto start_backprop = std::chrono::high_resolution_clock::now(); // Time messurment
      matrix_subtraction(output_error, target_vector, outputSize, 1);
     
      // Error term for hidden layer (128 x 1)
@@ -231,4 +250,9 @@ void NeuralNetwork_CPU::train(const std::vector<float> &input, uint8_t target, f
     //Output bias update
     multiply_with_constant(w_and_b_1.bias_partial, learning_rate);
     matrix_subtraction(bias_output, w_and_b_1.bias_partial, outputSize, 1);
+
+    auto end_backprop = std::chrono::high_resolution_clock::now(); // Time messurment
+    
+    std::chrono::duration<double> elapsed = end_backprop - start_backprop;
+    back_prop_time += elapsed.count();
 }
