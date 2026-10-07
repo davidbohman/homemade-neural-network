@@ -17,7 +17,7 @@ float randomWeight(float scale){
 
 // -------- Linear Algebra ----------
 std::vector<float> matrix_multiplication(const std::vector<float> &m1, int m1_rows, int m1_cols,
-                                         const std::vector<float> &m2, int m2_rows, int m2_cols)
+                                         const std::vector<float> &m2, [[maybe_unused]] int m2_rows, int m2_cols)
 {
                                             // mxn * nxm = mxm
     auto start = std::chrono::high_resolution_clock::now(); // Time messurment

@@ -37,6 +37,8 @@ std::vector<MNISTImage> load_MNIST(const std::string &image_path, const std::str
     uint32_t magicLabels = read_big_endian_uint32(lblFile);
     uint32_t numLabels = read_big_endian_uint32(lblFile);
 
+    if (magicImages != 2051) throw std::runtime_error("Bad magic number in image file.");
+    if (magicLabels != 2049) throw std::runtime_error("Bad magic number in label file.");
     if (numImages != numLabels) throw std::runtime_error("Number of images and labels mismatch.");
 
     std::vector<MNISTImage> dataset(numImages);
@@ -132,8 +134,8 @@ void paint_pixel(Drawing_pixel & pixel, int radius){
 bool is_hit(std::vector<float> &output, uint8_t target){
 
     float highest = 0;
-    int highest_index = 0;
-    for(int i = 0; i < output.size(); i++){
+    uint8_t highest_index = 0;
+    for(size_t i = 0; i < output.size(); i++){
         if(highest < output[i]){
             highest = output[i];
             highest_index = i;
@@ -149,9 +151,9 @@ bool training_complete = false;
 float hit_rate = 0.0f;
 
 void train_nn(NeuralNetwork_CPU & nn, float LEARNING_RATE, int EPOCHS){
-    auto trainData = load_MNIST("../MNIST/MNIST/raw/train-images-idx3-ubyte.gz", "../MNIST/MNIST/raw/train-labels-idx1-ubyte.gz");
+    auto trainData = load_MNIST("MNIST/MNIST/raw/train-images-idx3-ubyte.gz", "MNIST/MNIST/raw/train-labels-idx1-ubyte.gz");
     std::cout << "Loaded " << trainData.size() << " images." << std::endl;
-    auto testData = load_MNIST("../MNIST/MNIST/raw/t10k-images-idx3-ubyte.gz", "../MNIST/MNIST/raw/t10k-labels-idx1-ubyte.gz");
+    auto testData = load_MNIST("MNIST/MNIST/raw/t10k-images-idx3-ubyte.gz", "MNIST/MNIST/raw/t10k-labels-idx1-ubyte.gz");
     std::cout << "Training..." << std::endl;
     // Time messurment
     auto start_training = std::chrono::high_resolution_clock::now();
@@ -172,10 +174,10 @@ void train_nn(NeuralNetwork_CPU & nn, float LEARNING_RATE, int EPOCHS){
         auto end_epoch = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> elapsed = end_epoch - start_epoch;
 
-        std::cout << "Epoch " << i << " complete. Elapsed time: " << elapsed.count() << " seconds" << std::endl;
+        std::cout << "Epoch complete. Elapsed time: " << elapsed.count() << " seconds" << std::endl;
         std::cout << "Time spent on forwarding: " << forwarding_time << "seconds (" << (forwarding_time / elapsed.count()) * 100 << "%)" << std::endl;
         std::cout << "Time spent on back propagation: " << back_prop_time << "seconds (" << (back_prop_time / elapsed.count()) * 100 << "%)" << std::endl;
-        std::cout << "Time spent on matmul: " << matmul_time << "seconds (" << (matmul_time / elapsed.count()) * 100 << "%)" << std::endl;
+        std::cout << "Time spent on matrix multiplication: " << matmul_time << "seconds (" << (matmul_time / elapsed.count()) * 100 << "%)" << std::endl;
     }
 
     auto end_training = std::chrono::high_resolution_clock::now();
