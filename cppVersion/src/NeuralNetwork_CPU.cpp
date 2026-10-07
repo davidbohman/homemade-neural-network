@@ -29,11 +29,11 @@ std::vector<float> matrix_multiplication(const std::vector<float> &m1, int m1_ro
     [1, 2] * [5] = [(1*5 + 2*6)] =  [17]
     [4, 3]   [6]   [(4*5 + 3*6)]    [38]
     */
-//  #pragma omp parallel for simd
+    
     for(int i = 0; i < m1_rows; i++){
         for(int j = 0; j < m2_cols; j++){
             float sum = 0.0f;
- //           #pragma omp simd
+            #pragma omp simd
             for(int k = 0; k < m1_cols; k++){
                 sum += m1[i * m1_cols + k] * m2[k * m2_cols + j];
             }
