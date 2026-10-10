@@ -15,13 +15,18 @@ A learning project: a feed-forward neural network implemented from scratch in C+
 - Shows the hit rate on the 10 000-image test set after each training run
 - Press **NEW EPOCH** to train for another epoch and watch the hit rate improve
 - Cross-platform Makefile (macOS, Linux, Windows via MSYS2)
+
+
 ## How it works
  
 The network has one hidden layer (784 → 128 → 10):
  
 ```
-a1 = sigmoid(W0 · x  + b0)        hidden layer (128 neurons)
-a2 = softmax(W1 · a1 + b1)        output layer (10 neurons, one per digit)
+z1 = W0 · x  + b0                 hidden layer, before activation
+a1 = sigmoid(z1)                  hidden layer output (128 neurons)
+ 
+z2 = W1 · a1 + b1                 output layer, before activation
+a2 = softmax(z2)                  output layer output (10 neurons, one per digit)
 ```
  
 Each image is flattened to 784 values scaled to `[0, 1]`. The prediction is the output neuron with the highest probability.
