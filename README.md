@@ -2,8 +2,10 @@
  
 A learning project: a feed-forward neural network implemented from scratch in C++ (no ML libraries) and trained on the [MNIST](https://en.wikipedia.org/wiki/MNIST_database) handwritten digit dataset. A small [raylib](https://www.raylib.com/) UI lets you draw your own digits and watch the network guess them live.
  
-![Screenshot](screenshot.png)
- 
+ <p align="center">
+<img src="screenshot.png" alt="Screenshot" width="300">
+</p>
+
 ## Features
  
 - Fully hand-written neural network: matrix math, activation functions, forward pass, backpropagation and SGD
