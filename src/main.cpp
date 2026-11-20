@@ -3,10 +3,15 @@
 #include <zlib.h>
 #include <vector>
 #include <iostream>
-#include "../include/NeuralNetwork_CPU.h"
+#include "../include/NeuralNetwork.h"
 #include <thread>
 #include <string>
+
+
+#ifdef HAVE_RAYLIB
 #include <raylib.h>
+#endif
+
 
 // ---- READING MNIST DATASET -----
 
@@ -67,69 +72,8 @@ std::vector<MNISTImage> load_MNIST(const std::string &image_path, const std::str
     return dataset;
 }
 
-// ---- DRAWING FUNCTIONS ----
 
-struct Drawing_pixel{
-    int x_coor;
-    int y_coor;
-    int x_pos;
-    int y_pos;
-    int width;
-    int height;
-    float val = 0.0;
-    Color color;
-};
-//Vector that holdes drawing made by user
-std::vector<Drawing_pixel> user_img(28*28);
-std::vector<float> user_img_data(28*28);
-bool data_changed = false;
-int current_guess = 0;
-
-struct Dir_elem{
-    int x;
-    int y;
-    float val;
-};
-
-//Creates directional matrix, used for pixel painting
-std::vector<Dir_elem> make_dir_offset(int radius) {
-    float fade = 1.0f / (float) radius;
-    radius--;
-    std::vector<Dir_elem> dirs;
-    for (int dr = -radius; dr <= radius; dr++) {
-        for (int dc = -radius; dc <= radius; dc++) {
-            if (dr == 0 && dc == 0) continue;   // skip the center cell
-            //if (dr*dr + dc*dc > radius*radius) continue; //THIS IS IF CIRCLE IS WANTED INSTEAD
-            if (abs(dr) + abs(dc) > radius) continue; // THIS IS IF DIAMOND IS WANTED INSTEAD
-            float val =1.0f - (std::max(dr, dc) * fade);
-            dirs.push_back({dc, dr, val});
-        }
-    }
-    return dirs;
-}
-
-std::vector<Dir_elem> dir_offset = make_dir_offset(2);  
-
-void paint_pixel(Drawing_pixel & pixel, int radius){
-
-
-    pixel.val = 1.0f;
-    pixel.color = WHITE;
-    if(radius <= 1) return;
-
-    for(Dir_elem dir : dir_offset){
-        int nx = pixel.x_coor + dir.x;
-        int ny = pixel.y_coor + dir.y;
-        if (nx < 0 || nx >= 28 || ny < 0 || ny >= 28) continue;
-
-        Drawing_pixel& p = user_img[ny * 28 + nx];
-        p.val = std::min(1.0f ,p.val + dir.val);         
-        p.color = WHITE;
-        p.color.a = (unsigned char)(p.val * 255.0f);
-    }
-}
-
-// ---- NN FUNCTIONS ----
+// ---- NN TRAINING FUNCTIONS ----
 
 bool is_hit(std::vector<float> &output, uint8_t target){
 
@@ -202,6 +146,71 @@ void train_nn(NeuralNetwork_CPU & nn, float LEARNING_RATE, int EPOCHS){
     return;
 }
 
+#ifdef HAVE_RAYLIB
+
+// ---- DRAWING FUNCTIONS ----
+
+struct Drawing_pixel{
+    int x_coor;
+    int y_coor;
+    int x_pos;
+    int y_pos;
+    int width;
+    int height;
+    float val = 0.0;
+    Color color;
+};
+//Vector that holdes drawing made by user
+std::vector<Drawing_pixel> user_img(28*28);
+std::vector<float> user_img_data(28*28);
+bool data_changed = false;
+int current_guess = 0;
+
+struct Dir_elem{
+    int x;
+    int y;
+    float val;
+};
+
+//Creates directional matrix, used for pixel painting
+std::vector<Dir_elem> make_dir_offset(int radius) {
+    float fade = 1.0f / (float) radius;
+    radius--;
+    std::vector<Dir_elem> dirs;
+    for (int dr = -radius; dr <= radius; dr++) {
+        for (int dc = -radius; dc <= radius; dc++) {
+            if (dr == 0 && dc == 0) continue;   // skip the center cell
+            //if (dr*dr + dc*dc > radius*radius) continue; //THIS IS IF CIRCLE IS WANTED INSTEAD
+            if (abs(dr) + abs(dc) > radius) continue; // THIS IS IF DIAMOND IS WANTED INSTEAD
+            float val =1.0f - (std::max(dr, dc) * fade);
+            dirs.push_back({dc, dr, val});
+        }
+    }
+    return dirs;
+}
+
+std::vector<Dir_elem> dir_offset = make_dir_offset(2);  
+
+void paint_pixel(Drawing_pixel & pixel, int radius){
+
+
+    pixel.val = 1.0f;
+    pixel.color = WHITE;
+    if(radius <= 1) return;
+
+    for(Dir_elem dir : dir_offset){
+        int nx = pixel.x_coor + dir.x;
+        int ny = pixel.y_coor + dir.y;
+        if (nx < 0 || nx >= 28 || ny < 0 || ny >= 28) continue;
+
+        Drawing_pixel& p = user_img[ny * 28 + nx];
+        p.val = std::min(1.0f ,p.val + dir.val);         
+        p.color = WHITE;
+        p.color.a = (unsigned char)(p.val * 255.0f);
+    }
+}
+
+
 std::atomic<bool> exit_application{false};
 //One thread will always be running this function
 void nn_guess(NeuralNetwork_CPU & nn){
@@ -248,12 +257,15 @@ bool within_space(int mouse_x, int mouse_y, Button btn){
     return horisontal && vertical;
 }
 
+#endif
+
 int main() {
 
     // NN setup
-    NeuralNetwork_CPU nn;
+    NeuralNetwork nn;
     nn.initialize(784,128, 10, 0.2f);
 
+#ifdef HAVE_RAYLIB
     // Helper threads
     std::thread training_thread(train_nn, std::ref(nn), 0.01, 1);
     std::thread guess_thread(nn_guess, std::ref(nn));
@@ -371,6 +383,12 @@ int main() {
         training_thread.join();
     if (guess_thread.joinable())
         guess_thread.join();
+#else
+    //Terminal output if application is run without UI, only trains network and prints output to terminal
+    train_nn(std::ref(nn), 0.01, 1);
+
+    
+#endif
 
     return 0;
 }
