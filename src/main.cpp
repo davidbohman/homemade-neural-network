@@ -94,11 +94,12 @@ int training_progress = 0;
 bool training_complete = false;
 float hit_rate = 0.0f;
 
-void train_nn(NeuralNetwork_CPU & nn, float LEARNING_RATE, int EPOCHS){
+void train_nn(NeuralNetwork & nn, float LEARNING_RATE, int EPOCHS){
     auto trainData = load_MNIST("MNIST/MNIST/raw/train-images-idx3-ubyte.gz", "MNIST/MNIST/raw/train-labels-idx1-ubyte.gz");
     std::cout << "Loaded " << trainData.size() << " images." << std::endl;
     auto testData = load_MNIST("MNIST/MNIST/raw/t10k-images-idx3-ubyte.gz", "MNIST/MNIST/raw/t10k-labels-idx1-ubyte.gz");
     std::cout << "Training..." << std::endl;
+    
     // Time messurment
     auto start_training = std::chrono::high_resolution_clock::now();
     forwarding_time = 0.0;
@@ -119,13 +120,13 @@ void train_nn(NeuralNetwork_CPU & nn, float LEARNING_RATE, int EPOCHS){
         std::chrono::duration<double> elapsed = end_epoch - start_epoch;
 
         std::cout << "Epoch complete. Elapsed time: " << elapsed.count() << " seconds" << std::endl;
-        std::cout << "Time spent on forwarding: " << forwarding_time << "seconds (" << (forwarding_time / elapsed.count()) * 100 << "%)" << std::endl;
-        std::cout << "Time spent on back propagation: " << back_prop_time << "seconds (" << (back_prop_time / elapsed.count()) * 100 << "%)" << std::endl;
-        std::cout << "Time spent on matrix multiplication: " << matmul_time << "seconds (" << (matmul_time / elapsed.count()) * 100 << "%)" << std::endl;
     }
 
     auto end_training = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end_training - start_training;
+    std::cout << "Time spent on forwarding: " << forwarding_time << "seconds (" << (forwarding_time / elapsed.count()) * 100 << "%)" << std::endl;
+    std::cout << "Time spent on back propagation: " << back_prop_time << "seconds (" << (back_prop_time / elapsed.count()) * 100 << "%)" << std::endl;
+    std::cout << "Time spent on matrix multiplication: " << matmul_time << "seconds (" << (matmul_time / elapsed.count()) * 100 << "%)" << std::endl;
 
     std::cout << "Training complete after: " << elapsed.count()
               << "seconds\nstarting testing..." << std::endl;
@@ -213,7 +214,7 @@ void paint_pixel(Drawing_pixel & pixel, int radius){
 
 std::atomic<bool> exit_application{false};
 //One thread will always be running this function
-void nn_guess(NeuralNetwork_CPU & nn){
+void nn_guess(NeuralNetwork & nn){
     while(!exit_application){
         if(training_complete && data_changed){
             for(const Drawing_pixel pixel : user_img){
