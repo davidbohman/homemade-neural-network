@@ -11,9 +11,11 @@
 #include <string>
 #include <cmath>
 
-#define LAYERS 3
-#define SIZE_FIRST_LAYER 1024
-#define BATCH_SIZE 1
+//DO NOT CHANGE
+#define INPUT_SIZE 784
+
+
+#define BATCH_SIZE 64
 #define LEARNING_RATE (0.01f * BATCH_SIZE)
 #define EPOCHS 1
 
@@ -305,7 +307,7 @@ int main() {
     // NN setup
     NeuralNetwork nn;
 
-    nn.initialize({784,128,10}, 0.2f);
+    nn.initialize({INPUT_SIZE,128,10}, 0.2f);
 
 #ifdef HAVE_RAYLIB
     // Helper threads

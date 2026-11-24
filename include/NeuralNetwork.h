@@ -1,5 +1,6 @@
 #pragma once
 #include <vector>
+#include <cstdint>
 
 //Time measurements
 extern double forwarding_time;
@@ -24,10 +25,10 @@ public:
 
 private:
     // Variables
-    uint inputSize;
+    size_t inputSize;
 
     struct Layer{
-        uint layer_size;
+        size_t layer_size;
         std::vector<float> weights;
         std::vector<float> bias;
         std::vector<float> activated;

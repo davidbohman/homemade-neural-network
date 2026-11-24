@@ -3,6 +3,7 @@
 #include <chrono>
 #include <random>
 #include <vector>
+#include <algorithm>
 
 #define RELU
 
@@ -34,21 +35,21 @@ float randomWeight(float scale){
 
 
 // A x B = C
-void matmul(const vector<float>& A, uint aRows, const vector<float>& B, uint bRows, vector<float>& result){
+void matmul(const vector<float>& A, size_t aRows, const vector<float>& B, size_t bRows, vector<float>& result){
 
     ScopedTimer t(matmul_time);
     assert(A.size() % aRows == 0);
     assert(B.size() % bRows == 0);
 
-    uint aCols = A.size() / aRows;
-    uint bCols = B.size() / bRows;
+    size_t aCols = A.size() / aRows;
+    size_t bCols = B.size() / bRows;
 
     assert(aCols == bRows);
     assert(result.size() == aRows * bCols);
-
-    for (uint i = 0; i < aRows; i++) {          // each row of A
-        for (uint j = 0; j < bCols; j++) {      // each column of B
-            for (uint k = 0; k < bRows; k++) {  // walk along the row/column
+    //Should be optimized!
+    for (size_t i = 0; i < aRows; i++) {          // each row of A
+        for (size_t j = 0; j < bCols; j++) {      // each column of B
+            for (size_t k = 0; k < bRows; k++) {  // walk along the row/column
                 result[i * bCols + j] += A[i * aCols + k] * B[k * bCols + j];
             }
         }
@@ -56,11 +57,11 @@ void matmul(const vector<float>& A, uint aRows, const vector<float>& B, uint bRo
 }
 
 // out = Mᵀ, where M is rows x cols (row-major)
-void transpose(const vector<float>& M, uint rows, uint cols, vector<float>& out) {
+void transpose(const vector<float>& M, size_t rows, size_t cols, vector<float>& out) {
     ScopedTimer t(transpose_time);
     out.resize(static_cast<size_t>(rows) * cols);
-    for (uint i = 0; i < rows; i++)
-        for (uint j = 0; j < cols; j++)
+    for (size_t i = 0; i < rows; i++)
+        for (size_t j = 0; j < cols; j++)
             out[j * rows + i] = M[i * cols + j];
 }
 
@@ -117,18 +118,18 @@ vector<float> softmax(const vector<float> &v){
 }
 
 // Softmax over each column of an (rows x cols) row-major matrix, in place
-void softmaxColumns(vector<float>& M, uint rows, uint cols) {
+void softmaxColumns(vector<float>& M, size_t rows, size_t cols) {
     ScopedTimer t(softMax_time);
-    for (uint s = 0; s < cols; s++) {
+    for (size_t s = 0; s < cols; s++) {
         float maxVal = M[s];
-        for (uint r = 1; r < rows; r++) maxVal = max(maxVal, M[r * cols + s]);
+        for (size_t r = 1; r < rows; r++) maxVal = max(maxVal, M[r * cols + s]);
         float sum = 0.0f;
-        for (uint r = 0; r < rows; r++) {
+        for (size_t r = 0; r < rows; r++) {
             float& e = M[r * cols + s];
             e = exp(e - maxVal);
             sum += e;
         }
-        for (uint r = 0; r < rows; r++) M[r * cols + s] /= sum;
+        for (size_t r = 0; r < rows; r++) M[r * cols + s] /= sum;
     }
 }
 
