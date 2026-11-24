@@ -26,7 +26,7 @@ DEPS := $(OBJS:.o=.d)
 # Extra compiler defines, e.g.  make DEFINES="-DBATCH_SIZE=64"
 DEFINES ?=
 
-CXXFLAGS := -std=c++17 -O3 -Wall -Wextra -I$(INC_DIR) -MMD -MP -DNDEBUG $(DEFINES)
+CXXFLAGS := -std=c++17 -O3 -Wall -Wextra -I$(INC_DIR) -MMD -MP $(DEFINES) #-DNDEBUG 
 LDFLAGS  :=
 LDLIBS   := -lz -lm
 

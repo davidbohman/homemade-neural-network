@@ -5,7 +5,8 @@
 extern double forwarding_time;
 extern double back_prop_time; 
 extern double matmul_time;
-
+extern double transpose_time;
+extern double softMax_time;
 
 
 class NeuralNetwork {
@@ -13,34 +14,30 @@ public:
     ~NeuralNetwork() = default;
 
     // Initializing Network
-    void initialize(int inputSize, int hiddenSize, int outputSize, float bias);
+    void initialize(std::vector<int>layers, float bias);
 
     // Forward propagation
     std::vector<float> forward(const std::vector<float> &input);
 
-    // Back propagation + update weights
-    void train(const std::vector<float> &input, uint8_t target, float learning_rate);
+    // Batched forwarding + Back propagation + update weights
+    void train(const std::vector<float>& X, const std::vector<uint8_t>& targets, size_t batchSize, float learingRate);
 
 private:
     // Variables
-    int inputSize;
-    int hiddenSize;
-    int outputSize;
+    uint inputSize;
 
-    std::vector<float> weights_hidden;
-    std::vector<float> weights_output;
+    struct Layer{
+        uint layer_size;
+        std::vector<float> weights;
+        std::vector<float> bias;
+        std::vector<float> activated;
+        std::vector<float> pre;
+        std::vector<float> error;
+    };
 
-    std::vector<float> bias_hidden;
-    std::vector<float> bias_output;
-
-    std::vector<float> hidden_act;
-    std::vector<float> hidden_pre;
+    std::vector<Layer>hiddenLayers;
 
     //Activation function
-    float(*activation_func)(float);
-    float(*activation_derivative_func)(float);
-
-    //
-
-
+    float(*activationFunc)(float);
+    float(*activationDerivativeFunc)(float);  
 };
