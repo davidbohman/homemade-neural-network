@@ -44,13 +44,19 @@ void matmul(const vector<float>& A, size_t aRows, const vector<float>& B, size_t
     size_t aCols = A.size() / aRows;
     size_t bCols = B.size() / bRows;
 
+    //Make sure result doens't contain garbage
+    std::fill(result.begin(), result.end(), 0.0f);
+
     assert(aCols == bRows);
     assert(result.size() == aRows * bCols);
     //Should be optimized!
+    #pragma omp parallel for
     for (size_t i = 0; i < aRows; i++) {          // each row of A
-        for (size_t j = 0; j < bCols; j++) {      // each column of B
-            for (size_t k = 0; k < bRows; k++) {  // walk along the row/column
-                result[i * bCols + j] += A[i * aCols + k] * B[k * bCols + j];
+        for (size_t k = 0; k < bRows; k++) {        //each row of B
+            float a = A[i * aCols + k];
+            #pragma omp simd
+            for (size_t j = 0; j < bCols; j++) {    //each col of B
+                result[i * bCols + j] += a * B[k * bCols + j]; 
             }
         }
     }
@@ -65,12 +71,6 @@ void transpose(const vector<float>& M, size_t rows, size_t cols, vector<float>& 
             out[j * rows + i] = M[i * cols + j];
 }
 
-// W -= lr * a * b^T   (outer-product gradient step, no temporaries)
-void applyOuterUpdate(vector<float>& W, const vector<float>& a, const vector<float>& b, float lr) {
-    for (size_t i = 0; i < a.size(); ++i)
-        for (size_t j = 0; j < b.size(); ++j)
-            W[i * b.size() + j] -= lr * a[i] * b[j];
-}
 
 // y += alpha * x
 void axpy(vector<float>& y, const vector<float>& x, float alpha) {
@@ -158,7 +158,12 @@ void NeuralNetwork::initialize(vector<int>layers, float bias) {
             //Size dependent on previous layer
             hiddenLayers[i].weights.resize(hiddenLayers[i].layer_size * prevSize);
             //Scale for randomization
+
+        #ifdef RELU
+            float scale = sqrt(2.0f / (float)prevSize);
+        #else 
             float scale = sqrt(1.0f / (float)prevSize);
+        #endif
             //randomizing weights
             for(auto &w : hiddenLayers[i].weights) w = randomWeight(scale);
             //bias Allocation & assign
@@ -169,8 +174,8 @@ void NeuralNetwork::initialize(vector<int>layers, float bias) {
     activationFunc = relu;
     activationDerivativeFunc = relu_derivate;
 #else
-    activation_func = sigmoid;
-    activation_derivative_func = sigmoid_derivate;
+    activationFunc = sigmoid;
+    activationDerivativeFunc = sigmoid_derivate;
 #endif
 }
 
@@ -182,7 +187,7 @@ vector<float> NeuralNetwork::forward(const vector<float> &input) {
     //First layer
     Layer& firstHidden = hiddenLayers[0];
 
-    firstHidden.pre.assign(firstHidden.layer_size * 1, 0.0f);
+    firstHidden.pre.resize(firstHidden.layer_size * 1);
 
     matmul(     firstHidden.weights,
             firstHidden.layer_size,
@@ -201,7 +206,7 @@ vector<float> NeuralNetwork::forward(const vector<float> &input) {
         Layer& prevLayer = hiddenLayers[i-1];
 
         //A vector                                            
-        currentLayer.pre.assign(currentLayer.layer_size * 1, 0.0f);
+        currentLayer.pre.resize(currentLayer.layer_size * 1);
         
         matmul(     currentLayer.weights,
                 currentLayer.layer_size,
@@ -241,7 +246,7 @@ void NeuralNetwork::train(const std::vector<float>& X, const std::vector<uint8_t
             size_t n = layer.layer_size;
 
             // (n x inSize) * (inSize x b) = (n x b)
-            layer.pre.assign(n * batchSize, 0.0f);
+            layer.pre.resize(n * batchSize);
             matmul(layer.weights, n, in, inSize, layer.pre);   // matmul must zero result
 
             // add bias to every column

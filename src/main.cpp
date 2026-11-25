@@ -17,12 +17,13 @@
 
 #define BATCH_SIZE 64
 #define LEARNING_RATE (0.01f * BATCH_SIZE)
-#define EPOCHS 1
+#define EPOCHS 4
 
 //#define HAVE_RAYLIB
 #ifdef HAVE_RAYLIB
 #include <raylib.h>
 #endif
+
 
 
 // ---- READING MNIST DATASET -----
@@ -307,7 +308,7 @@ int main() {
     // NN setup
     NeuralNetwork nn;
 
-    nn.initialize({INPUT_SIZE,128,10}, 0.2f);
+    nn.initialize({INPUT_SIZE,512 ,256, 128,10}, 0.2f);
 
 #ifdef HAVE_RAYLIB
     // Helper threads
