@@ -1,12 +1,30 @@
 #include <algorithm>
 #include <cstddef>
+#include <numeric>
+#include <random>
 #include <zlib.h>
 #include <vector>
 #include <iostream>
-#include "../include/NeuralNetwork_CPU.h"
+#include <algorithm>
+#include "../include/NeuralNetwork.h"
 #include <thread>
 #include <string>
+#include <cmath>
+
+//DO NOT CHANGE
+#define INPUT_SIZE 784
+
+
+#define BATCH_SIZE 64
+#define LEARNING_RATE (0.01f * BATCH_SIZE)
+#define EPOCHS 4
+
+//#define HAVE_RAYLIB
+#ifdef HAVE_RAYLIB
 #include <raylib.h>
+#endif
+
+
 
 // ---- READING MNIST DATASET -----
 
@@ -66,6 +84,113 @@ std::vector<MNISTImage> load_MNIST(const std::string &image_path, const std::str
 
     return dataset;
 }
+
+
+// ---- NN TRAINING FUNCTIONS ----
+
+bool is_hit(std::vector<float> &output, uint8_t target){
+
+    float highest = 0;
+    uint8_t highest_index = 0;
+    for(size_t i = 0; i < output.size(); i++){
+        if(highest < output[i]){
+            highest = output[i];
+            highest_index = i;
+        }
+    }
+
+    return highest_index == target;
+
+}
+
+int training_progress = 0;
+bool training_complete = false;
+float hit_rate = 0.0f;
+
+void train_nn(NeuralNetwork & nn){
+    auto trainData = load_MNIST("MNIST/MNIST/raw/train-images-idx3-ubyte.gz", "MNIST/MNIST/raw/train-labels-idx1-ubyte.gz");
+    std::cout << "Loaded " << trainData.size() << " images." << std::endl;
+    auto testData = load_MNIST("MNIST/MNIST/raw/t10k-images-idx3-ubyte.gz", "MNIST/MNIST/raw/t10k-labels-idx1-ubyte.gz");
+    std::cout << "Training..." << std::endl;
+    
+    // Time messurment
+    auto start_training = std::chrono::high_resolution_clock::now();
+    forwarding_time = 0.0;
+    back_prop_time = 0.0;
+    matmul_time = 0.0;
+
+
+    const size_t inputSize = trainData[0].pixels.size();
+
+    std::vector<size_t> order(trainData.size());
+    std::iota(order.begin(), order.end(), 0);       // 0, 1, 2, ...
+    std::mt19937 rng(std::random_device{}());
+
+    std::vector<float> X;
+    std::vector<uint8_t> labels;
+
+    const size_t batchesPerEpoch = (order.size() + BATCH_SIZE - 1) / BATCH_SIZE;  // ceil
+    const size_t totalBatches = batchesPerEpoch * EPOCHS;
+    size_t doneBatches = 0;
+    training_progress = 0;
+
+    for (int e = 0; e < EPOCHS; e++) {
+        auto start_epoch = std::chrono::high_resolution_clock::now();
+
+        std::shuffle(order.begin(), order.end(), rng);   // new batches every epoch
+
+        for (size_t start = 0; start < order.size(); start += BATCH_SIZE) {
+            size_t b = std::min<size_t>(BATCH_SIZE, order.size() - start);  // last batch may be smaller
+
+            X.resize(inputSize * b);
+            labels.resize(b);
+
+            for (size_t s = 0; s < b; s++) {
+                const MNISTImage& img = trainData[order[start + s]];
+                labels[s] = img.label;
+                for (size_t f = 0; f < inputSize; f++)
+                    X[f * b + s] = img.pixels[f];      // sample s becomes column s
+            }
+
+            nn.train(X, labels, b, LEARNING_RATE);
+
+            doneBatches++;
+            training_progress = (int)(100 * doneBatches / totalBatches);
+        }
+
+
+        auto end_epoch = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed = end_epoch - start_epoch;
+
+        std::cout << "Epoch complete. Elapsed time: " << elapsed.count() << " seconds" << std::endl;
+    }
+
+    auto end_training = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed = end_training - start_training;
+    std::cout << "Time spent on forwarding:             " << forwarding_time << "seconds (" << (forwarding_time / elapsed.count()) * 100 << "%)" << std::endl;
+    std::cout << "Time spent on back propagation:       " << back_prop_time << "seconds (" << (back_prop_time / elapsed.count()) * 100 << "%)" << std::endl;
+    std::cout << "Time spent on matrix multiplication:  " << matmul_time << "seconds (" << (matmul_time / elapsed.count()) * 100 << "%)" << std::endl;
+    std::cout << "Time spent on transposing:            " << transpose_time << "seconds (" << (transpose_time / elapsed.count()) * 100 << "%)" << std::endl;
+    std::cout << "Time spent on softmax:                " << softMax_time << "seconds (" << (softMax_time / elapsed.count()) * 100 << "%)" << std::endl;
+    std::cout << "Training complete after:              " << elapsed.count() << "seconds\nstarting testing..." << std::endl;
+
+    // Testing the NN - Generating hit rate
+    std::vector<float> output;
+    int hits = 0;
+    int tries = 0;
+    for (auto &data : testData) {
+        output = nn.forward(data.pixels);
+        if (is_hit(output, data.label)) hits++;
+        tries++;
+        hit_rate = (float)hits / (float)tries;
+    }
+    training_complete = true;
+    std::cout << "Testing finished, hit rate: " << hit_rate << std::endl;
+
+    return;
+}
+
+#ifdef HAVE_RAYLIB
 
 // ---- DRAWING FUNCTIONS ----
 
@@ -129,82 +254,10 @@ void paint_pixel(Drawing_pixel & pixel, int radius){
     }
 }
 
-// ---- NN FUNCTIONS ----
-
-bool is_hit(std::vector<float> &output, uint8_t target){
-
-    float highest = 0;
-    uint8_t highest_index = 0;
-    for(size_t i = 0; i < output.size(); i++){
-        if(highest < output[i]){
-            highest = output[i];
-            highest_index = i;
-        }
-    }
-
-    return highest_index == target;
-
-}
-
-int training_progress = 0;
-bool training_complete = false;
-float hit_rate = 0.0f;
-
-void train_nn(NeuralNetwork_CPU & nn, float LEARNING_RATE, int EPOCHS){
-    auto trainData = load_MNIST("MNIST/MNIST/raw/train-images-idx3-ubyte.gz", "MNIST/MNIST/raw/train-labels-idx1-ubyte.gz");
-    std::cout << "Loaded " << trainData.size() << " images." << std::endl;
-    auto testData = load_MNIST("MNIST/MNIST/raw/t10k-images-idx3-ubyte.gz", "MNIST/MNIST/raw/t10k-labels-idx1-ubyte.gz");
-    std::cout << "Training..." << std::endl;
-    // Time messurment
-    auto start_training = std::chrono::high_resolution_clock::now();
-    forwarding_time = 0.0;
-    back_prop_time = 0.0;
-    matmul_time = 0.0;
-
-    for (int i = 0; i < EPOCHS; i++) {
-        auto start_epoch =
-        std::chrono::high_resolution_clock::now(); // Time messurment
-        int iteration = 0;
-        for (auto &data : trainData) {
-            nn.train(data.pixels, data.label, LEARNING_RATE);
-            if (iteration % 500 == 0) training_progress++;
-            iteration++;
-        }
-
-        auto end_epoch = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> elapsed = end_epoch - start_epoch;
-
-        std::cout << "Epoch complete. Elapsed time: " << elapsed.count() << " seconds" << std::endl;
-        std::cout << "Time spent on forwarding: " << forwarding_time << "seconds (" << (forwarding_time / elapsed.count()) * 100 << "%)" << std::endl;
-        std::cout << "Time spent on back propagation: " << back_prop_time << "seconds (" << (back_prop_time / elapsed.count()) * 100 << "%)" << std::endl;
-        std::cout << "Time spent on matrix multiplication: " << matmul_time << "seconds (" << (matmul_time / elapsed.count()) * 100 << "%)" << std::endl;
-    }
-
-    auto end_training = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> elapsed = end_training - start_training;
-
-    std::cout << "Training complete after: " << elapsed.count()
-              << "seconds\nstarting testing..." << std::endl;
-
-    // Testing the NN - Generating hit rate
-    std::vector<float> output;
-    int hits = 0;
-    int tries = 0;
-    for (auto &data : testData) {
-        output = nn.forward(data.pixels);
-        if (is_hit(output, data.label)) hits++;
-        tries++;
-        hit_rate = (float)hits / (float)tries;
-    }
-    training_complete = true;
-    std::cout << "Testing finished, hit rate: " << hit_rate << std::endl;
-
-    return;
-}
 
 std::atomic<bool> exit_application{false};
 //One thread will always be running this function
-void nn_guess(NeuralNetwork_CPU & nn){
+void nn_guess(NeuralNetwork & nn){
     while(!exit_application){
         if(training_complete && data_changed){
             for(const Drawing_pixel pixel : user_img){
@@ -248,14 +301,18 @@ bool within_space(int mouse_x, int mouse_y, Button btn){
     return horisontal && vertical;
 }
 
+#endif
+
 int main() {
 
     // NN setup
-    NeuralNetwork_CPU nn;
-    nn.initialize(784,128, 10, 0.2f);
+    NeuralNetwork nn;
 
+    nn.initialize({INPUT_SIZE,512 ,256, 128,10}, 0.2f);
+
+#ifdef HAVE_RAYLIB
     // Helper threads
-    std::thread training_thread(train_nn, std::ref(nn), 0.01, 1);
+    std::thread training_thread(train_nn, std::ref(nn));
     std::thread guess_thread(nn_guess, std::ref(nn));
 
     // Drawing
@@ -299,7 +356,7 @@ int main() {
     Button epoch_btn;
     epoch_btn.y_pos = epoch_btn.height + reset_btn.y_pos + 4;
     epoch_btn.width = tmp_btn_width;
-    epoch_btn.text = "NEW EPOCH";
+    epoch_btn.text = "TRAIN NETWORK";
 
     std::vector<Button> btns({reset_btn, epoch_btn});
 
@@ -327,9 +384,9 @@ int main() {
 
         // Training status
         DrawText("TRAINING", text_start_coor, 10, 30, text_color);
-        for (int i = 0; i < training_progress; i++) {
-            DrawRectangle(text_start_coor + i * 3, 40, 30, 20, text_color);
-        }
+        const int bar_max_width = 380;   // fits inside the 400px panel, starting at x = 10
+        int progress = std::clamp(training_progress, 0, 100);
+        DrawRectangle(text_start_coor, 40, bar_max_width * progress / 100, 20, text_color);
         if (training_complete) {
             DrawText("-", window_width/2 - 15, 10, 30, text_color);
             DrawText("COMPLETE", text_start_coor + 20 * 10 + 18, 10, 30, text_color);
@@ -358,7 +415,7 @@ int main() {
                 training_complete = false;
                 if (training_thread.joinable()) training_thread.join();
                 training_progress = 0;
-                training_thread = std::thread(train_nn, std::ref(nn), 0.01, 1);
+                training_thread = std::thread(train_nn, std::ref(nn));
             }
         }
 
@@ -371,6 +428,13 @@ int main() {
         training_thread.join();
     if (guess_thread.joinable())
         guess_thread.join();
+#else
+    //Terminal output if application is run without UI, only trains network and prints output to terminal
+    train_nn(std::ref(nn));
+
+
+    
+#endif
 
     return 0;
 }

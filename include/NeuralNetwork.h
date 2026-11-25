@@ -1,16 +1,44 @@
 #pragma once
 #include <vector>
+#include <cstdint>
+
+//Time measurements
+extern double forwarding_time;
+extern double back_prop_time; 
+extern double matmul_time;
+extern double transpose_time;
+extern double softMax_time;
+
 
 class NeuralNetwork {
 public:
-    virtual ~NeuralNetwork() = default;
+    ~NeuralNetwork() = default;
 
     // Initializing Network
-    virtual void initialize(int inputSize, int hiddenSize, int outputSize, float bias) = 0;
+    void initialize(std::vector<int>layers, float bias);
 
     // Forward propagation
-    virtual std::vector<float> forward(const std::vector<float> &input) = 0;
+    std::vector<float> forward(const std::vector<float> &input);
 
-    // Back propagation + update weights
-    virtual void train(const std::vector<float> &input, uint8_t target, float learning_rate) = 0;
+    // Batched forwarding + Back propagation + update weights
+    void train(const std::vector<float>& X, const std::vector<uint8_t>& targets, size_t batchSize, float learingRate);
+
+private:
+    // Variables
+    size_t inputSize;
+
+    struct Layer{
+        size_t layer_size;
+        std::vector<float> weights;
+        std::vector<float> bias;
+        std::vector<float> activated;
+        std::vector<float> pre;
+        std::vector<float> error;
+    };
+
+    std::vector<Layer>hiddenLayers;
+
+    //Activation function
+    float(*activationFunc)(float);
+    float(*activationDerivativeFunc)(float);  
 };
