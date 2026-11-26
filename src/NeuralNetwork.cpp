@@ -1,11 +1,15 @@
 #include "../include/NeuralNetwork.h"
+#include "../include/gpuVersion.h"
 #include <cassert>
 #include <chrono>
 #include <random>
 #include <vector>
 #include <algorithm>
 
+//#define HAVE_NVCC 
 #define RELU
+
+#define GPU_MAX_BATCH 4096
 
 using namespace std;
 
@@ -49,7 +53,7 @@ void matmul(const vector<float>& A, size_t aRows, const vector<float>& B, size_t
 
     assert(aCols == bRows);
     assert(result.size() == aRows * bCols);
-    //Should be optimized!
+
     #pragma omp parallel for
     for (size_t i = 0; i < aRows; i++) {          // each row of A
         for (size_t k = 0; k < bRows; k++) {        //each row of B
@@ -135,7 +139,13 @@ void softmaxColumns(vector<float>& M, size_t rows, size_t cols) {
 
 // --------- Class functions ----------
 
-//TODO:: Make it possible to have multiple hidden layers
+void NeuralNetwork::syncWeightsFromGpu() {
+    #ifdef HAVE_NVCC
+        vector<float*> w, b;
+        for (auto& l : hiddenLayers) { w.push_back(l.weights.data()); b.push_back(l.bias.data()); }
+        gpuNetDownloadWeights(w.data(), b.data());
+    #endif
+}
 
 void NeuralNetwork::initialize(vector<int>layers, float bias) {
 
@@ -234,6 +244,29 @@ void NeuralNetwork::train(const std::vector<float>& X, const std::vector<uint8_t
     assert(L >= 2);
     assert(X.size() == inputSize * batchSize);
     assert(targets.size() == batchSize);
+
+#ifdef HAVE_NVCC
+    {
+        //Allocates for this max batch
+        static bool gpuReady = false;
+        assert(batchSize <= (size_t)GPU_MAX_BATCH);
+        if (!gpuReady) {
+            vector<int> sz = { (int)inputSize };
+            vector<const float*> hW, hB;
+            for (auto& l : hiddenLayers) {
+                sz.push_back(l.layer_size);
+                hW.push_back(l.weights.data());
+                hB.push_back(l.bias.data());
+            }
+            gpuNetInit(sz.data(), (int)sz.size(), GPU_MAX_BATCH, hW.data(), hB.data());
+            gpuReady = true;
+        }
+        ScopedTimer t(back_prop_time);   // whole GPU step is counted here
+        gpuNetTrain(X.data(), targets.data(), (int)batchSize, learingRate);
+        return;
+    }
+
+#endif
 
     // ---------- FORWARD ----------
     {

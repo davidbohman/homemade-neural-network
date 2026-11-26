@@ -23,6 +23,9 @@ public:
     // Batched forwarding + Back propagation + update weights
     void train(const std::vector<float>& X, const std::vector<uint8_t>& targets, size_t batchSize, float learingRate);
 
+    void syncWeightsFromGpu();
+
+
 private:
     // Variables
     size_t inputSize;

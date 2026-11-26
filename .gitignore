@@ -13,3 +13,6 @@ MNIST/
 build/
 *.o
 *.d
+
+build-cpu/
+build-gpu/
