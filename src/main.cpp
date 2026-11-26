@@ -11,19 +11,20 @@
 #include <string>
 #include <cmath>
 
-//DO NOT CHANGE
 #define INPUT_SIZE 784
 
 
-#define BATCH_SIZE 64
-#define LEARNING_RATE (0.01f * BATCH_SIZE)
-#define EPOCHS 4
+#define BATCH_SIZE 1024
+#define LEARNING_RATE (0.01f)
+#define EPOCHS 10
 
 //#define HAVE_RAYLIB
 #ifdef HAVE_RAYLIB
 #include <raylib.h>
 #endif
 
+//Input layer, fst hidden, snd hidden, trd hidden, output
+#define NETWORK_STRUCTURE {INPUT_SIZE, 1024, 512, 256 ,10} 
 
 
 // ---- READING MNIST DATASET -----
@@ -167,13 +168,16 @@ void train_nn(NeuralNetwork & nn){
 
     auto end_training = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end_training - start_training;
+    #ifdef HAVE_NVCC
+    nn.syncWeightsFromGpu();   // GPU -> CPU weights/biases, empty call if GPU is unavailable
+    #else
     std::cout << "Time spent on forwarding:             " << forwarding_time << "seconds (" << (forwarding_time / elapsed.count()) * 100 << "%)" << std::endl;
     std::cout << "Time spent on back propagation:       " << back_prop_time << "seconds (" << (back_prop_time / elapsed.count()) * 100 << "%)" << std::endl;
     std::cout << "Time spent on matrix multiplication:  " << matmul_time << "seconds (" << (matmul_time / elapsed.count()) * 100 << "%)" << std::endl;
     std::cout << "Time spent on transposing:            " << transpose_time << "seconds (" << (transpose_time / elapsed.count()) * 100 << "%)" << std::endl;
     std::cout << "Time spent on softmax:                " << softMax_time << "seconds (" << (softMax_time / elapsed.count()) * 100 << "%)" << std::endl;
     std::cout << "Training complete after:              " << elapsed.count() << "seconds\nstarting testing..." << std::endl;
-
+    #endif
     // Testing the NN - Generating hit rate
     std::vector<float> output;
     int hits = 0;
@@ -308,7 +312,7 @@ int main() {
     // NN setup
     NeuralNetwork nn;
 
-    nn.initialize({INPUT_SIZE,512 ,256, 128,10}, 0.2f);
+    nn.initialize(NETWORK_STRUCTURE, 0.2f);
 
 #ifdef HAVE_RAYLIB
     // Helper threads
